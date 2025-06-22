@@ -1,12 +1,12 @@
-import { PrismaClient } from '@/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import Papa from 'papaparse';
 
 const prisma = new PrismaClient();
 
 // CSVのヘッダーから情報を抽出するための正規表現
-const paymentDateRegex = /今回のお支払日\s*(\d{4}\/\d{2}\/\d{2})/;
-const totalAmountRegex = /今回のお支払金額合計\s*([\d,]+)円/;
+const paymentDateRegex = /今回のお支払日,(\d{4}\/\d{2}\/\d{2})/;
+const totalAmountRegex = /今回のお支払金額合計,([\d,]+)円/;
 
 // 明細の型定義
 interface TransactionRow {
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
 
     // 1. ヘッダーと明細を分離
     const headerLines = lines.slice(0, 5).join('\n');
-    const detailLines = lines.slice(5).join('\n');
+    const detailLines = lines.slice(4).join('\n');
 
     // 2. ヘッダーからサマリー情報を抽出
     const paymentDateMatch = headerLines.match(paymentDateRegex);
@@ -83,7 +83,6 @@ export async function POST(req: Request) {
       });
 
       if (existingTransaction) {
-        console.log(`Skipping duplicate transaction: ${storeName} on ${transactionDate.toISOString()}`);
         continue;
       }
       
@@ -111,7 +110,5 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('Import API Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
   }
 }
