@@ -295,41 +295,63 @@ export default function Dashboard({ data }: DashboardProps) {
   return (
     <Container maxW="7xl" py={8}>
       <VStack spacing={8} align="stretch">
-        <HStack justify="space-between" align="center">
-          <Heading>クレジットカード利用明細ダッシュボード</Heading>
-          <HStack spacing={4}>
-            <FormControl display="flex" alignItems="center">
-              <FormLabel htmlFor="period-select" mb="0" fontSize="sm" mr={2}>
-                期間:
-              </FormLabel>
-              <Select
-                id="period-select"
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
-                size="sm"
-                maxW="150px"
-              >
-                <option value="all">全期間</option>
-                <option value="1year">直近1年</option>
-                <option value="6months">直近半年</option>
-                <option value="3months">直近3ヶ月</option>
-              </Select>
-            </FormControl>
-            <FormControl display="flex" alignItems="center">
-              <FormLabel htmlFor="category-toggle" mb="0" fontSize="sm">
-                詳細表示
-              </FormLabel>
-              <Switch
-                id="category-toggle"
-                isChecked={showDetailedCategories}
-                onChange={(e) => setShowDetailedCategories(e.target.checked)}
-                colorScheme="blue"
-              />
-            </FormControl>
-            <Button as={Link} href="/transactions" colorScheme="blue">
-              明細管理へ
-            </Button>
-          </HStack>
+        <HStack justify="space-between" align="center" wrap="wrap" gap={4}>
+          <Heading flex="1" textAlign={{ base: "center", md: "left" }}>
+            クレジットカード利用明細ダッシュボード
+          </Heading>
+          <Button 
+            as={Link} 
+            href="/transactions" 
+            colorScheme="blue" 
+            variant="outline"
+            size="sm"
+            flex="none"
+            whiteSpace="nowrap"
+          >
+            明細管理へ
+          </Button>
+        </HStack>
+
+        {/* Dashboard Controls */}
+        <HStack 
+          spacing={6} 
+          justify={{ base: "center", md: "flex-start" }}
+          wrap="wrap"
+          gap={4}
+          p={4}
+          bg="gray.50"
+          borderRadius="lg"
+        >
+          <FormControl display="flex" alignItems="center" flex="none">
+            <FormLabel htmlFor="period-select" mb="0" fontSize="sm" mr={2} whiteSpace="nowrap">
+              期間:
+            </FormLabel>
+            <Select
+              id="period-select"
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              size="sm"
+              minW="120px"
+              maxW="180px"
+              bg="white"
+            >
+              <option value="all">全期間</option>
+              <option value="1year">直近1年</option>
+              <option value="6months">直近半年</option>
+              <option value="3months">直近3ヶ月</option>
+            </Select>
+          </FormControl>
+          <FormControl display="flex" alignItems="center" flex="none">
+            <FormLabel htmlFor="category-toggle" mb="0" fontSize="sm" mr={2} whiteSpace="nowrap">
+              詳細表示
+            </FormLabel>
+            <Switch
+              id="category-toggle"
+              isChecked={showDetailedCategories}
+              onChange={(e) => setShowDetailedCategories(e.target.checked)}
+              colorScheme="blue"
+            />
+          </FormControl>
         </HStack>
 
         {/* Stats */}
