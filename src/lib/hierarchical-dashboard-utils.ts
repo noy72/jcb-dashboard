@@ -1,4 +1,24 @@
-import { DashboardData } from '@/components/Dashboard';
+export interface MonthlyData {
+  month: string;
+  monthlyCategories: { name: string; amount: number; count: number }[];
+  monthlyDetailedCategories: { 
+    majorCategory: string; 
+    minorCategory: string | null; 
+    amount: number; 
+    count: number; 
+  }[];
+  monthlyTotal: number;
+}
+
+// Base dashboard data interface
+export interface DashboardData {
+  totalAmount: number;
+  categoryBreakdown: { name: string; amount: number; count: number }[];
+  monthlyData: { month: string; amount: number }[];
+  monthlyCategories: MonthlyData[];
+  availableMonths: string[];
+  uncategorizedCount: number;
+}
 
 interface MajorCategory {
   id: number;
@@ -39,18 +59,6 @@ export interface HierarchicalDashboardData extends DashboardData {
     amount: number; 
     count: number; 
   }[];
-}
-
-export interface MonthlyData {
-  month: string;
-  monthlyCategories: { name: string; amount: number; count: number }[];
-  monthlyDetailedCategories: { 
-    majorCategory: string; 
-    minorCategory: string | null; 
-    amount: number; 
-    count: number; 
-  }[];
-  monthlyTotal: number;
 }
 
 export function getAvailableMonths(transactions: Transaction[]): string[] {

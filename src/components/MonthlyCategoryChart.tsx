@@ -10,16 +10,18 @@ import {
   HStack,
 } from '@chakra-ui/react';
 import { Doughnut } from 'react-chartjs-2';
-import { MonthlyData } from '@/lib/dashboard-utils';
+import { MonthlyData } from '@/lib/hierarchical-dashboard-utils';
 
 interface MonthlyCategoryChartProps {
   monthlyData: MonthlyData[];
   availableMonths: string[];
+  showDetailedCategories?: boolean;
 }
 
 export default function MonthlyCategoryChart({ 
   monthlyData, 
-  availableMonths 
+  availableMonths,
+  showDetailedCategories = false
 }: MonthlyCategoryChartProps) {
   const [selectedMonth, setSelectedMonth] = useState<string>('');
 
@@ -41,12 +43,24 @@ export default function MonthlyCategoryChart({
 
   const currentMonthData = monthlyData.find(data => data.month === selectedMonth);
 
-  if (!currentMonthData || currentMonthData.monthlyCategories.length === 0) {
+  // Choose which data to display based on detail mode
+  const currentCategories = showDetailedCategories 
+    ? currentMonthData?.monthlyDetailedCategories?.map(item => ({
+        name: `${item.majorCategory}${item.minorCategory ? ` > ${item.minorCategory}` : ''}`,
+        amount: item.amount,
+        count: item.count,
+      })) || []
+    : currentMonthData?.monthlyCategories || [];
+
+  if (!currentMonthData || currentCategories.length === 0) {
     return (
       <Box bg="white" p={6} borderRadius="lg" shadow="sm">
         <VStack spacing={4} align="stretch">
           <HStack justify="space-between" align="center">
-            <Heading size="md">月別カテゴリ別支出割合</Heading>
+            <Heading size="md">
+              月別カテゴリ別支出割合
+              {showDetailedCategories && <Text fontSize="sm" color="gray.600">(詳細表示)</Text>}
+            </Heading>
             <Select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
@@ -69,10 +83,10 @@ export default function MonthlyCategoryChart({
   }
 
   const chartData = {
-    labels: currentMonthData.monthlyCategories.map(item => item.name),
+    labels: currentCategories.map(item => item.name),
     datasets: [
       {
-        data: currentMonthData.monthlyCategories.map(item => item.amount),
+        data: currentCategories.map(item => item.amount),
         backgroundColor: [
           '#FF6384',
           '#36A2EB',
@@ -80,7 +94,14 @@ export default function MonthlyCategoryChart({
           '#4BC0C0',
           '#9966FF',
           '#FF9F40',
-          '#FF6384',
+          '#FF6E40',
+          '#8E24AA',
+          '#00ACC1',
+          '#7CB342',
+          '#FFA726',
+          '#EF5350',
+          '#AB47BC',
+          '#26A69A',
           '#C9CBCF',
         ],
         borderWidth: 1,
@@ -111,7 +132,10 @@ export default function MonthlyCategoryChart({
     <Box bg="white" p={6} borderRadius="lg" shadow="sm">
       <VStack spacing={4} align="stretch">
         <HStack justify="space-between" align="center">
-          <Heading size="md">月別カテゴリ別支出割合</Heading>
+          <Heading size="md">
+            月別カテゴリ別支出割合
+            {showDetailedCategories && <Text fontSize="sm" color="gray.600">(詳細表示)</Text>}
+          </Heading>
           <Select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
@@ -136,12 +160,17 @@ export default function MonthlyCategoryChart({
 
         {/* Category details */}
         <VStack spacing={2} align="stretch" mt={4}>
-          <Heading size="sm">カテゴリ詳細</Heading>
-          {currentMonthData.monthlyCategories.map((category, index) => {
+          <Heading size="sm">
+            カテゴリ詳細
+            {showDetailedCategories && <Text fontSize="xs" color="gray.600">(大カテゴリ > 小カテゴリ)</Text>}
+          </Heading>
+          {currentCategories.map((category, index) => {
             const percentage = ((category.amount / currentMonthData.monthlyTotal) * 100).toFixed(1);
             return (
               <HStack key={index} justify="space-between" p={2} bg="gray.50" borderRadius="md">
-                <Text fontWeight="semibold">{category.name}</Text>
+                <Text fontWeight="semibold" fontSize={showDetailedCategories ? "sm" : "md"}>
+                  {category.name}
+                </Text>
                 <HStack>
                   <Text>{formatAmount(category.amount)}</Text>
                   <Text color="gray.500" fontSize="sm">({percentage}%)</Text>
