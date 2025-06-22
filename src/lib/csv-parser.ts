@@ -20,10 +20,13 @@ export interface ParsedCSVResult {
   transactions: ParsedTransaction[];
 }
 
-const paymentDateRegex = /今回のお支払日.*"(\d{4}\/\d{1,2}\/\d{1,2})"/;
-const totalAmountRegex = /今回のお支払金額合計.*"(\d+)"/;
-const domesticAmountRegex = /うち国内ご利用金額合計.*"(\d+)"/;
-const overseasAmountRegex = /うち海外ご利用金額合計.*"(\d+)"/;
+// Expected header structure
+const EXPECTED_HEADERS = {
+  PAYMENT_DATE: '今回のお支払日',
+  TOTAL_AMOUNT: '今回のお支払金額合計(￥)',
+  DOMESTIC_AMOUNT: 'うち国内ご利用金額合計(￥)',
+  OVERSEAS_AMOUNT: 'うち海外ご利用金額合計(￥)',
+};
 
 interface TransactionRow {
   'ご利用日': string;
@@ -36,23 +39,31 @@ interface TransactionRow {
 export function parseJCBCSV(csvText: string): ParsedCSVResult {
   const lines = csvText.split('\n');
 
-  // Extract header information (first 5 lines)
-  const headerLines = lines.slice(0, 5).join('\n');
-  
-  const paymentDateMatch = headerLines.match(paymentDateRegex);
-  const totalAmountMatch = headerLines.match(totalAmountRegex);
-  const domesticAmountMatch = headerLines.match(domesticAmountRegex);
-  const overseasAmountMatch = headerLines.match(overseasAmountRegex);
+  // Parse header information (first 4 lines) as CSV
+  const headerRows = lines.slice(0, 4).map(line => line.split(',').map(cell => cell.slice(1, -1).trim())); // Remove leading/trailing quotes
 
-  if (!paymentDateMatch || !totalAmountMatch || !domesticAmountMatch || !overseasAmountMatch) {
-    throw new Error('Invalid CSV header format');
+  if (headerRows[0][2] !== EXPECTED_HEADERS.PAYMENT_DATE ||
+      headerRows[1][2] !== EXPECTED_HEADERS.TOTAL_AMOUNT ||
+      headerRows[2][2] !== EXPECTED_HEADERS.DOMESTIC_AMOUNT ||
+      headerRows[3][2] !== EXPECTED_HEADERS.OVERSEAS_AMOUNT) {
+    throw new Error('Invalid CSV header format: Missing expected headers');
+  }
+
+  const paymentDate = headerRows[0][3]?.trim();
+  const totalAmount = headerRows[1][3]?.trim();
+  const domesticAmount = headerRows[2][3]?.trim();
+  const overseasAmount = headerRows[3][3]?.trim();
+  
+  // Validate that all required header information was found
+  if (!paymentDate || !totalAmount || !domesticAmount || !overseasAmount) {
+    throw new Error('Invalid CSV header format: Missing required fields (今回のお支払日, 今回のお支払金額合計, うち国内ご利用金額合計, うち海外ご利用金額合計)');
   }
 
   const statement: ParsedStatement = {
-    payment_date: new Date(paymentDateMatch[1]),
-    total_amount: parseInt(totalAmountMatch[1], 10),
-    domestic_amount: parseInt(domesticAmountMatch[1], 10),
-    overseas_amount: parseInt(overseasAmountMatch[1], 10),
+    payment_date: new Date(paymentDate),
+    total_amount: parseInt(totalAmount, 10),
+    domestic_amount: parseInt(domesticAmount, 10),
+    overseas_amount: parseInt(overseasAmount, 10),
   };
 
   // Parse transaction details (starting from line 6)

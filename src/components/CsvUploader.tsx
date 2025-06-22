@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import {
   Box,
   Button,
@@ -12,6 +12,7 @@ import {
   Alert,
   AlertIcon,
 } from '@chakra-ui/react';
+import { importCSV } from '@/lib/actions/import';
 
 interface CsvUploaderProps {
   onUploadSuccess?: (statementId: number) => void;
@@ -19,7 +20,7 @@ interface CsvUploaderProps {
 
 export function CsvUploader({ onUploadSuccess }: CsvUploaderProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const toast = useToast();
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,55 +50,67 @@ export function CsvUploader({ onUploadSuccess }: CsvUploaderProps) {
       return;
     }
 
-    setIsUploading(true);
-    
-    try {
-      const fileContent = await file.text();
-      
-      const response = await fetch('/api/import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain',
-        },
-        body: fileContent,
-      });
+    startTransition(async () => {
+      try {
+        // Read file as ArrayBuffer to handle SHIFT-JIS encoding
+        const arrayBuffer = await file.arrayBuffer();
+        
+        // Try to decode as SHIFT-JIS first, fallback to UTF-8
+        let fileContent: string;
+        try {
+          const decoder = new TextDecoder('shift_jis');
+          fileContent = decoder.decode(arrayBuffer);
+          
+          // Check if the decoded content contains valid Japanese characters
+          // If it contains replacement characters (�), it might indicate encoding issues
+          if (fileContent.includes('�')) {
+            throw new Error('Possible encoding mismatch detected');
+          }
+        } catch (error) {
+          console.warn('Failed to decode as SHIFT-JIS, trying UTF-8:', error);
+          try {
+            const decoder = new TextDecoder('utf-8');
+            fileContent = decoder.decode(arrayBuffer);
+          } catch {
+            throw new Error('ファイルのエンコーディングを読み取れませんでした。SHIFT-JISまたはUTF-8のCSVファイルを使用してください。');
+          }
+        }
+        
+        const result = await importCSV(fileContent);
 
-      const result = await response.json();
-
-      if (response.ok) {
+        if (result.success) {
+          toast({
+            title: 'インポート成功',
+            description: result.message,
+            status: 'success',
+            duration: 5000,
+            isClosable: true,
+          });
+          
+          setFile(null);
+          // Reset the input
+          const fileInput = document.getElementById('csv-file-input') as HTMLInputElement;
+          if (fileInput) {
+            fileInput.value = '';
+          }
+          
+          if (onUploadSuccess && result.statementId) {
+            onUploadSuccess(result.statementId);
+          }
+        } else {
+          throw new Error(result.message);
+        }
+      } catch (error) {
+        console.error('Upload error:', error);
         toast({
-          title: 'インポート成功',
-          description: 'CSVファイルのインポートが完了しました。',
-          status: 'success',
+          title: 'インポートエラー',
+          description: error instanceof Error ? error.message : 'インポートに失敗しました。',
+          status: 'error',
           duration: 5000,
           isClosable: true,
         });
-        
-        setFile(null);
-        // Reset the input
-        const fileInput = document.getElementById('csv-file-input') as HTMLInputElement;
-        if (fileInput) {
-          fileInput.value = '';
-        }
-        
-        if (onUploadSuccess && result.statementId) {
-          onUploadSuccess(result.statementId);
-        }
-      } else {
-        throw new Error(result.error || 'インポートに失敗しました');
       }
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast({
-        title: 'インポートエラー',
-        description: error instanceof Error ? error.message : 'インポートに失敗しました。',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    } finally {
-      setIsUploading(false);
-    }
+    });
   };
 
   return (
@@ -111,6 +124,7 @@ export function CsvUploader({ onUploadSuccess }: CsvUploaderProps) {
           <AlertIcon />
           <Text fontSize="sm">
             JCBカードの利用明細CSVファイルを選択してアップロードしてください。
+            SHIFT-JISおよびUTF-8エンコーディングに対応しています。
           </Text>
         </Alert>
 
@@ -119,7 +133,7 @@ export function CsvUploader({ onUploadSuccess }: CsvUploaderProps) {
           type="file"
           accept=".csv"
           onChange={handleFileChange}
-          disabled={isUploading}
+          disabled={isPending}
         />
 
         {file && (
@@ -128,10 +142,10 @@ export function CsvUploader({ onUploadSuccess }: CsvUploaderProps) {
           </Text>
         )}
 
-        {isUploading && (
+        {isPending && (
           <Box>
             <Text fontSize="sm" mb={2}>
-              アップロード中...
+              インポート中...
             </Text>
             <Progress size="sm" isIndeterminate />
           </Box>
@@ -140,9 +154,9 @@ export function CsvUploader({ onUploadSuccess }: CsvUploaderProps) {
         <Button
           colorScheme="blue"
           onClick={handleUpload}
-          disabled={!file || isUploading}
-          isLoading={isUploading}
-          loadingText="アップロード中"
+          disabled={!file || isPending}
+          isLoading={isPending}
+          loadingText="インポート中"
         >
           CSVをインポート
         </Button>
