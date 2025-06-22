@@ -11,6 +11,10 @@ interface Transaction {
     id: number;
     name: string;
   } | null;
+  storeCategory: {
+    id: number;
+    name: string;
+  } | null;
   statement: {
     id: number;
     payment_date: Date;
@@ -55,9 +59,9 @@ export function calculateMonthlyData(transactions: Transaction[], targetMonth?: 
     monthTransactions.forEach(transaction => {
       monthlyTotal += transaction.amount;
       
-      if (transaction.category) {
-        const existing = categoryMap.get(transaction.category.name) || { amount: 0, count: 0 };
-        categoryMap.set(transaction.category.name, {
+      if (transaction.storeCategory) {
+        const existing = categoryMap.get(transaction.storeCategory.name) || { amount: 0, count: 0 };
+        categoryMap.set(transaction.storeCategory.name, {
           amount: existing.amount + transaction.amount,
           count: existing.count + 1,
         });
@@ -87,9 +91,9 @@ export function calculateDashboardData(transactions: Transaction[]): DashboardDa
   let uncategorizedCount = 0;
   
   transactions.forEach(transaction => {
-    if (transaction.category) {
-      const existing = categoryMap.get(transaction.category.name) || { amount: 0, count: 0 };
-      categoryMap.set(transaction.category.name, {
+    if (transaction.storeCategory) {
+      const existing = categoryMap.get(transaction.storeCategory.name) || { amount: 0, count: 0 };
+      categoryMap.set(transaction.storeCategory.name, {
         amount: existing.amount + transaction.amount,
         count: existing.count + 1,
       });

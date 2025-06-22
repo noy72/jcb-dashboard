@@ -1,5 +1,6 @@
 import { getCategories } from '@/lib/actions/categories';
-import { getTransactions, getAvailableTransactionMonths } from '@/lib/actions/transactions';
+import { getAvailableTransactionMonths } from '@/lib/actions/transactions';
+import { getTransactionsWithStoreCategories } from '@/lib/actions/store-categories';
 import TransactionsList from '@/components/TransactionsList';
 
 interface TransactionsPageProps {
@@ -11,7 +12,7 @@ interface TransactionsPageProps {
 export default async function TransactionsPage({ searchParams }: TransactionsPageProps) {
   try {
     const [transactions, categories, availableMonths] = await Promise.all([
-      getTransactions(searchParams.month),
+      getTransactionsWithStoreCategories(searchParams.month),
       getCategories(),
       getAvailableTransactionMonths(),
     ]);

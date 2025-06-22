@@ -1,10 +1,10 @@
-import { getTransactions } from '@/lib/actions/transactions';
+import { getTransactionsWithStoreCategories } from '@/lib/actions/store-categories';
 import { calculateDashboardData } from '@/lib/dashboard-utils';
 import ClientOnlyDashboard from '@/components/ClientOnlyDashboard';
 
 export default async function DashboardPage() {
   try {
-    const transactions = await getTransactions();
+    const transactions = await getTransactionsWithStoreCategories();
     const dashboardData = calculateDashboardData(transactions);
     
     return <ClientOnlyDashboard data={dashboardData} />;

@@ -22,7 +22,7 @@ import {
 } from '@chakra-ui/react';
 import { CsvUploader } from '@/components/CsvUploader';
 import { CategoryModal } from '@/components/CategoryModal';
-import { updateTransactionCategory } from '@/lib/actions/transactions';
+import { updateStoreCategoryMapping } from '@/lib/actions/store-categories';
 import { useRouter } from 'next/navigation';
 
 export interface Transaction {
@@ -33,6 +33,10 @@ export interface Transaction {
   payment_type: string;
   note: string | null;
   category: {
+    id: number;
+    name: string;
+  } | null;
+  storeCategory: {
     id: number;
     name: string;
   } | null;
@@ -66,13 +70,13 @@ export default function TransactionsList({
   const toast = useToast();
   const router = useRouter();
 
-  const handleUpdateCategory = async (transactionId: number, categoryId: number) => {
+  const handleUpdateStoreCategory = async (storeName: string, categoryId: number) => {
     startTransition(async () => {
       try {
-        await updateTransactionCategory(transactionId, categoryId);
+        await updateStoreCategoryMapping(storeName, categoryId);
         toast({
           title: 'カテゴリ更新成功',
-          description: 'カテゴリが更新されました。',
+          description: '店舗カテゴリが更新されました。',
           status: 'success',
           duration: 3000,
           isClosable: true,
@@ -81,10 +85,10 @@ export default function TransactionsList({
         // Refresh the page to get updated data
         router.refresh();
       } catch (error) {
-        console.error('Error updating category:', error);
+        console.error('Error updating store category:', error);
         toast({
           title: 'カテゴリ更新エラー',
-          description: 'カテゴリの更新に失敗しました。',
+          description: '店舗カテゴリの更新に失敗しました。',
           status: 'error',
           duration: 5000,
           isClosable: true,
@@ -179,8 +183,8 @@ export default function TransactionsList({
                       <Td isNumeric>{formatAmount(transaction.amount)}</Td>
                       <Td>{transaction.payment_type}</Td>
                       <Td>
-                        {transaction.category ? (
-                          <Badge colorScheme="blue">{transaction.category.name}</Badge>
+                        {transaction.storeCategory ? (
+                          <Badge colorScheme="blue">{transaction.storeCategory.name}</Badge>
                         ) : (
                           <Badge colorScheme="gray">未分類</Badge>
                         )}
@@ -190,10 +194,10 @@ export default function TransactionsList({
                         <Select
                           placeholder="カテゴリを選択"
                           size="sm"
-                          value={transaction.category?.id || ''}
+                          value={transaction.storeCategory?.id || ''}
                           onChange={(e) => {
                             if (e.target.value) {
-                              handleUpdateCategory(transaction.id, parseInt(e.target.value));
+                              handleUpdateStoreCategory(transaction.store_name, parseInt(e.target.value));
                             }
                           }}
                           disabled={isPending}
