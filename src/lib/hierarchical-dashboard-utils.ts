@@ -10,10 +10,16 @@ export interface MonthlyData {
   monthlyTotal: number;
 }
 
+export interface CategoryBreakdown {
+  name: string;
+  amount: number;
+  count: number;
+};
+
 // Base dashboard data interface
 export interface DashboardData {
   totalAmount: number;
-  categoryBreakdown: { name: string; amount: number; count: number }[];
+  categoryBreakdown: CategoryBreakdown[];
   monthlyData: { month: string; amount: number }[];
   monthlyCategories: MonthlyData[];
   availableMonths: string[];

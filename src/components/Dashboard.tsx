@@ -24,6 +24,7 @@ import {
   Tr,
   Th,
   Td,
+  Select,
 } from '@chakra-ui/react';
 import { Doughnut, Bar } from 'react-chartjs-2';
 import {
@@ -48,7 +49,7 @@ ChartJS.register(
   ArcElement
 );
 
-import { HierarchicalDashboardData } from '@/lib/hierarchical-dashboard-utils';
+import { CategoryBreakdown, HierarchicalDashboardData, MonthlyData } from '@/lib/hierarchical-dashboard-utils';
 import MonthlyCategoryChart from './MonthlyCategoryChart';
 import Link from 'next/link';
 
@@ -58,10 +59,92 @@ interface DashboardProps {
 
 export default function Dashboard({ data }: DashboardProps) {
   const [showDetailedCategories, setShowDetailedCategories] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
   
   const formatAmount = (amount: number) => {
     return amount.toLocaleString('ja-JP') + '円';
   };
+
+  // Filter data based on selected period
+  const filterDataByPeriod = (monthlyData: MonthlyData[], detailedCategories: HierarchicalDashboardData['detailedCategoryBreakdown'], majorCategories: CategoryBreakdown[]) => {
+    if (selectedPeriod === 'all') {
+      return { monthlyData, detailedCategories, majorCategories };
+    }
+
+    const now = new Date();
+    let cutoffDate: Date;
+
+    switch (selectedPeriod) {
+      case '1year':
+        cutoffDate = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+        break;
+      case '6months':
+        cutoffDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+        break;
+      case '3months':
+        cutoffDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+        break;
+      default:
+        return { monthlyData, detailedCategories, majorCategories };
+    }
+
+    const filteredMonthlyData = monthlyData.filter(item => {
+      const itemDate = new Date(item.month + '-01');
+      return itemDate >= cutoffDate;
+    });
+
+    // Recalculate category totals for filtered period
+    const categoryTotals = new Map<string, { amount: number; count: number }>();
+    const detailedCategoryTotals = new Map<string, { majorCategory: string; minorCategory: string | null; amount: number; count: number }>();
+
+    filteredMonthlyData.forEach(monthData => {
+      // Major categories
+      monthData.monthlyCategories?.forEach((cat: CategoryBreakdown) => {
+        const existing = categoryTotals.get(cat.name) || { amount: 0, count: 0 };
+        categoryTotals.set(cat.name, {
+          amount: existing.amount + cat.amount,
+          count: existing.count + cat.count,
+        });
+      });
+
+      // Detailed categories
+      monthData.monthlyDetailedCategories?.forEach((cat) => {
+        const key = `${cat.majorCategory}_${cat.minorCategory || 'null'}`;
+        const existing = detailedCategoryTotals.get(key) || {
+          majorCategory: cat.majorCategory,
+          minorCategory: cat.minorCategory,
+          amount: 0,
+          count: 0,
+        };
+        detailedCategoryTotals.set(key, {
+          ...existing,
+          amount: existing.amount + cat.amount,
+          count: existing.count + cat.count,
+        });
+      });
+    });
+
+    const filteredMajorCategories = Array.from(categoryTotals.entries()).map(([name, data]) => ({
+      name,
+      amount: data.amount,
+      count: data.count,
+    })).sort((a, b) => b.amount - a.amount);
+
+    const filteredDetailedCategories = Array.from(detailedCategoryTotals.values())
+      .sort((a, b) => b.amount - a.amount);
+
+    return {
+      monthlyData: filteredMonthlyData,
+      detailedCategories: filteredDetailedCategories,
+      majorCategories: filteredMajorCategories,
+    };
+  };
+
+  const filteredData = data ? filterDataByPeriod(
+    data.monthlyCategories,
+    data.detailedCategoryBreakdown || [],
+    data.majorCategoryBreakdown || data.categoryBreakdown
+  ) : { monthlyData: [], detailedCategories: [], majorCategories: [] };
 
   if (!data) {
     return (
@@ -79,12 +162,12 @@ export default function Dashboard({ data }: DashboardProps) {
 
   // Choose which category breakdown to display
   const currentCategoryBreakdown = showDetailedCategories 
-    ? data.detailedCategoryBreakdown?.map(item => ({
+    ? filteredData.detailedCategories?.map(item => ({
         name: `${item.majorCategory}${item.minorCategory ? ` > ${item.minorCategory}` : ''}`,
         amount: item.amount,
         count: item.count,
       })) || []
-    : data.majorCategoryBreakdown || data.categoryBreakdown;
+    : filteredData.majorCategories;
 
   // Chart data
   const doughnutData = {
@@ -114,24 +197,97 @@ export default function Dashboard({ data }: DashboardProps) {
     ],
   };
 
-  const barData = {
-    labels: data.monthlyData.map(item => item.month),
-    datasets: [
-      {
-        label: '月別利用金額',
-        data: data.monthlyData.map(item => item.amount),
-        backgroundColor: 'rgba(54, 162, 235, 0.5)',
-        borderColor: 'rgba(54, 162, 235, 1)',
+  // Generate stacked bar chart data for monthly spending by category
+  const generateStackedBarData = () => {
+    const monthLabels = filteredData.monthlyData.map(item => item.month);
+    const categoriesData = showDetailedCategories 
+      ? filteredData.detailedCategories || []
+      : filteredData.majorCategories;
+
+    const categoryNames = categoriesData.map(cat => 
+      showDetailedCategories && 'majorCategory' in cat
+        ? `${cat.majorCategory}${cat.minorCategory ? ` > ${cat.minorCategory}` : ''}`
+        : (cat as CategoryBreakdown).name
+    );
+
+    const colors = [
+      'rgba(255, 99, 132, 0.8)',
+      'rgba(54, 162, 235, 0.8)',
+      'rgba(255, 205, 86, 0.8)',
+      'rgba(75, 192, 192, 0.8)',
+      'rgba(153, 102, 255, 0.8)',
+      'rgba(255, 159, 64, 0.8)',
+      'rgba(255, 110, 64, 0.8)',
+      'rgba(142, 36, 170, 0.8)',
+      'rgba(0, 172, 193, 0.8)',
+      'rgba(124, 179, 66, 0.8)',
+      'rgba(255, 167, 38, 0.8)',
+      'rgba(239, 83, 80, 0.8)',
+      'rgba(171, 71, 188, 0.8)',
+      'rgba(38, 166, 154, 0.8)',
+      'rgba(201, 203, 207, 0.8)',
+    ];
+
+    const datasets = categoryNames.map((categoryName, index) => {
+      const categoryData = monthLabels.map(month => {
+        const monthData = filteredData.monthlyData.find(m => m.month === month);
+        if (!monthData) return 0;
+
+        if (showDetailedCategories) {
+          const detailedCategory = monthData.monthlyDetailedCategories?.find(cat => 
+            `${cat.majorCategory}${cat.minorCategory ? ` > ${cat.minorCategory}` : ''}` === categoryName
+          );
+          return detailedCategory?.amount || 0;
+        } else {
+          const category = monthData.monthlyCategories.find(cat => cat.name === categoryName);
+          return category?.amount || 0;
+        }
+      });
+
+      return {
+        label: categoryName,
+        data: categoryData,
+        backgroundColor: colors[index % colors.length],
+        borderColor: colors[index % colors.length].replace('0.8', '1'),
         borderWidth: 1,
-      },
-    ],
+      };
+    });
+
+    return {
+      labels: monthLabels,
+      datasets,
+    };
   };
+
+  const barData = generateStackedBarData();
 
   const chartOptions = {
     responsive: true,
     plugins: {
       legend: {
         position: 'top' as const,
+      },
+      tooltip: {
+        callbacks: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          label: function(context: any) {
+            return `${context.dataset.label}: ${formatAmount(context.parsed.y)}`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        stacked: true,
+      },
+      y: {
+        stacked: true,
+        ticks: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          callback: function(value: any) {
+            return formatAmount(value);
+          }
+        }
       },
     },
   };
@@ -142,6 +298,23 @@ export default function Dashboard({ data }: DashboardProps) {
         <HStack justify="space-between" align="center">
           <Heading>クレジットカード利用明細ダッシュボード</Heading>
           <HStack spacing={4}>
+            <FormControl display="flex" alignItems="center">
+              <FormLabel htmlFor="period-select" mb="0" fontSize="sm" mr={2}>
+                期間:
+              </FormLabel>
+              <Select
+                id="period-select"
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                size="sm"
+                maxW="150px"
+              >
+                <option value="all">全期間</option>
+                <option value="1year">直近1年</option>
+                <option value="6months">直近半年</option>
+                <option value="3months">直近3ヶ月</option>
+              </Select>
+            </FormControl>
             <FormControl display="flex" alignItems="center">
               <FormLabel htmlFor="category-toggle" mb="0" fontSize="sm">
                 詳細表示
@@ -163,8 +336,20 @@ export default function Dashboard({ data }: DashboardProps) {
         <Grid templateColumns="repeat(auto-fit, minmax(200px, 1fr))" gap={6}>
           <GridItem>
             <Stat bg="white" p={6} borderRadius="lg" shadow="sm">
-              <StatLabel>総利用金額</StatLabel>
-              <StatNumber>{formatAmount(data.totalAmount)}</StatNumber>
+              <StatLabel>
+                総利用金額
+                {selectedPeriod !== 'all' && (
+                  <Text fontSize="xs" color="gray.500">
+                    ({selectedPeriod === '1year' ? '直近1年' : 
+                      selectedPeriod === '6months' ? '直近半年' : '直近3ヶ月'})
+                  </Text>
+                )}
+              </StatLabel>
+              <StatNumber>
+                {formatAmount(
+                  currentCategoryBreakdown.reduce((sum, cat) => sum + cat.amount, 0)
+                )}
+              </StatNumber>
             </Stat>
           </GridItem>
           <GridItem>
@@ -172,8 +357,8 @@ export default function Dashboard({ data }: DashboardProps) {
               <StatLabel>カテゴリ数</StatLabel>
               <StatNumber>
                 {showDetailedCategories 
-                  ? data.detailedCategoryBreakdown?.length || 0
-                  : data.majorCategoryBreakdown?.length || data.categoryBreakdown.length
+                  ? filteredData.detailedCategories?.length || 0
+                  : filteredData.majorCategories?.length || 0
                 }
               </StatNumber>
               <StatHelpText>
@@ -228,8 +413,8 @@ export default function Dashboard({ data }: DashboardProps) {
 
           <GridItem>
             <MonthlyCategoryChart 
-              monthlyData={data.monthlyCategories}
-              availableMonths={data.availableMonths}
+              monthlyData={filteredData.monthlyData}
+              availableMonths={filteredData.monthlyData.map(m => m.month)}
               showDetailedCategories={showDetailedCategories}
             />
           </GridItem>
@@ -237,8 +422,11 @@ export default function Dashboard({ data }: DashboardProps) {
 
         {/* Monthly spending chart */}
         <Box bg="white" p={6} borderRadius="lg" shadow="sm">
-          <Heading size="md" mb={4}>月別利用金額</Heading>
-          {data.monthlyData.length > 0 ? (
+          <Heading size="md" mb={4}>
+            月別カテゴリ別利用金額
+            {showDetailedCategories && <Text fontSize="sm" color="gray.600">(詳細表示)</Text>}
+          </Heading>
+          {filteredData.monthlyData.length > 0 ? (
             <Bar data={barData} options={chartOptions} />
           ) : (
             <Text color="gray.500" textAlign="center" py={8}>
@@ -267,8 +455,9 @@ export default function Dashboard({ data }: DashboardProps) {
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {data.detailedCategoryBreakdown?.map((category, index) => {
-                      const percentage = ((category.amount / data.totalAmount) * 100).toFixed(1);
+                    {filteredData.detailedCategories?.map((category, index) => {
+                      const totalAmount = currentCategoryBreakdown.reduce((sum, cat) => sum + cat.amount, 0);
+                      const percentage = ((category.amount / totalAmount) * 100).toFixed(1);
                       return (
                         <Tr key={index}>
                           <Td fontWeight="semibold">{category.majorCategory}</Td>
@@ -287,7 +476,8 @@ export default function Dashboard({ data }: DashboardProps) {
             ) : (
               <VStack spacing={2} align="stretch">
                 {currentCategoryBreakdown.map((category, index) => {
-                  const percentage = ((category.amount / data.totalAmount) * 100).toFixed(1);
+                  const totalAmount = currentCategoryBreakdown.reduce((sum, cat) => sum + cat.amount, 0);
+                  const percentage = ((category.amount / totalAmount) * 100).toFixed(1);
                   return (
                     <HStack key={index} justify="space-between" p={3} bg="gray.50" borderRadius="md">
                       <Text fontWeight="semibold">{category.name}</Text>
