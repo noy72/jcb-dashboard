@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Heading,
@@ -21,9 +21,14 @@ export default function MonthlyCategoryChart({
   monthlyData, 
   availableMonths 
 }: MonthlyCategoryChartProps) {
-  const [selectedMonth, setSelectedMonth] = useState<string>(
-    availableMonths[availableMonths.length - 1] || ''
-  );
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
+
+  // Set initial month after component mounts to avoid hydration mismatch
+  useEffect(() => {
+    if (availableMonths.length > 0 && !selectedMonth) {
+      setSelectedMonth(availableMonths[availableMonths.length - 1]);
+    }
+  }, [availableMonths, selectedMonth]);
 
   const formatMonth = (month: string) => {
     const date = new Date(month + '-01');
@@ -91,11 +96,11 @@ export default function MonthlyCategoryChart({
       },
       tooltip: {
         callbacks: {
-          label: function(context: any) {
-            const value = context.raw;
+          label: function(tooltipItem: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+            const value = tooltipItem.raw as number;
             const total = currentMonthData.monthlyTotal;
             const percentage = ((value / total) * 100).toFixed(1);
-            return `${context.label}: ${formatAmount(value)} (${percentage}%)`;
+            return `${tooltipItem.label}: ${formatAmount(value)} (${percentage}%)`;
           }
         }
       }
