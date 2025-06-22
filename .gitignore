@@ -44,3 +44,9 @@ next-env.d.ts
 
 # Sample data
 /assets/data/
+
+# Database files
+*.db
+*.db-journal
+/prisma/*.db
+/prisma/*.db-journal
