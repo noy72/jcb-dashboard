@@ -1,27 +1,27 @@
 import { getCategories } from '@/lib/actions/categories';
-import { getTransactions } from '@/lib/actions/transactions';
+import { getTransactions, getAvailableTransactionMonths } from '@/lib/actions/transactions';
 import TransactionsList from '@/components/TransactionsList';
 
 interface TransactionsPageProps {
   searchParams: {
-    statementId?: string;
+    month?: string;
   };
 }
 
 export default async function TransactionsPage({ searchParams }: TransactionsPageProps) {
   try {
-    const statementId = searchParams.statementId ? parseInt(searchParams.statementId) : undefined;
-    
-    const [transactions, categories] = await Promise.all([
-      getTransactions(statementId),
+    const [transactions, categories, availableMonths] = await Promise.all([
+      getTransactions(searchParams.month),
       getCategories(),
+      getAvailableTransactionMonths(),
     ]);
 
     return (
       <TransactionsList 
         initialTransactions={transactions}
         categories={categories}
-        initialStatementFilter={searchParams.statementId || ''}
+        availableMonths={availableMonths}
+        initialMonthFilter={searchParams.month || ''}
       />
     );
   } catch (error) {
@@ -30,7 +30,8 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
       <TransactionsList 
         initialTransactions={[]}
         categories={[]}
-        initialStatementFilter=""
+        availableMonths={[]}
+        initialMonthFilter=""
       />
     );
   }

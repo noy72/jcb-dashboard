@@ -51,13 +51,15 @@ export interface Category {
 interface TransactionsListProps {
   initialTransactions: Transaction[];
   categories: Category[];
-  initialStatementFilter?: string;
+  availableMonths: string[];
+  initialMonthFilter?: string;
 }
 
 export default function TransactionsList({ 
   initialTransactions, 
   categories, 
-  initialStatementFilter = '' 
+  availableMonths,
+  initialMonthFilter = '' 
 }: TransactionsListProps) {
   const [isPending, startTransition] = useTransition();
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -99,10 +101,10 @@ export default function TransactionsList({
     router.refresh();
   };
 
-  const handleStatementFilterChange = (value: string) => {
+  const handleMonthFilterChange = (value: string) => {
     const params = new URLSearchParams();
     if (value) {
-      params.set('statementId', value);
+      params.set('month', value);
     }
     router.push(`/transactions${params.toString() ? '?' + params.toString() : ''}`);
   };
@@ -115,13 +117,10 @@ export default function TransactionsList({
     return amount.toLocaleString('ja-JP') + '円';
   };
 
-  // Get unique statements for filter dropdown
-  const statements = Array.from(
-    new Set(initialTransactions.map(t => t.statement.id))
-  ).map(id => {
-    const transaction = initialTransactions.find(t => t.statement.id === id);
-    return transaction?.statement;
-  }).filter(Boolean);
+  const formatMonth = (monthString: string) => {
+    const [year, month] = monthString.split('-');
+    return `${year}年${month}月`;
+  };
 
   return (
     <Container maxW="7xl" py={8}>
@@ -135,14 +134,14 @@ export default function TransactionsList({
             <HStack spacing={4}>
               <Text fontWeight="semibold">フィルター:</Text>
               <Select
-                placeholder="支払月で絞り込み"
-                value={initialStatementFilter}
-                onChange={(e) => handleStatementFilterChange(e.target.value)}
+                placeholder="利用月で絞り込み"
+                value={initialMonthFilter}
+                onChange={(e) => handleMonthFilterChange(e.target.value)}
                 maxW="200px"
               >
-                {statements.map((statement) => (
-                  <option key={statement.id} value={statement.id}>
-                    {formatDate(statement.payment_date)} ({formatAmount(statement.total_amount)})
+                {availableMonths.map((month) => (
+                  <option key={month} value={month}>
+                    {formatMonth(month)}
                   </option>
                 ))}
               </Select>
