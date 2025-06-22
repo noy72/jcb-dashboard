@@ -39,10 +39,15 @@ ChartJS.register(
   ArcElement
 );
 
+import { MonthlyData } from '@/lib/dashboard-utils';
+import MonthlyCategoryChart from './MonthlyCategoryChart';
+
 export interface DashboardData {
   totalAmount: number;
   categoryBreakdown: { name: string; amount: number; count: number }[];
   monthlyData: { month: string; amount: number }[];
+  monthlyCategories: MonthlyData[];
+  availableMonths: string[];
   uncategorizedCount: number;
 }
 
@@ -146,10 +151,10 @@ export default function Dashboard({ data }: DashboardProps) {
         </Grid>
 
         {/* Charts */}
-        <Grid templateColumns={{ base: '1fr', lg: '1fr 1fr' }} gap={8}>
+        <Grid templateColumns={{ base: '1fr', xl: '1fr 1fr 1fr' }} gap={8}>
           <GridItem>
             <Box bg="white" p={6} borderRadius="lg" shadow="sm">
-              <Heading size="md" mb={4}>カテゴリ別支出割合</Heading>
+              <Heading size="md" mb={4}>全期間カテゴリ別支出割合</Heading>
               {data.categoryBreakdown.length > 0 ? (
                 <Doughnut data={doughnutData} options={chartOptions} />
               ) : (
@@ -158,6 +163,13 @@ export default function Dashboard({ data }: DashboardProps) {
                 </Text>
               )}
             </Box>
+          </GridItem>
+
+          <GridItem>
+            <MonthlyCategoryChart 
+              monthlyData={data.monthlyCategories}
+              availableMonths={data.availableMonths}
+            />
           </GridItem>
           
           <GridItem>
