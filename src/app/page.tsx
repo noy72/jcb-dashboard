@@ -1,11 +1,11 @@
-import { getTransactionsWithStoreCategories } from '@/lib/actions/store-categories';
-import { calculateDashboardData } from '@/lib/dashboard-utils';
+import { getTransactionsWithHierarchicalCategories } from '@/lib/actions/hierarchical-categories';
+import { calculateHierarchicalDashboardData } from '@/lib/hierarchical-dashboard-utils';
 import ClientOnlyDashboard from '@/components/ClientOnlyDashboard';
 
 export default async function DashboardPage() {
   try {
-    const transactions = await getTransactionsWithStoreCategories();
-    const dashboardData = calculateDashboardData(transactions);
+    const transactions = await getTransactionsWithHierarchicalCategories();
+    const dashboardData = calculateHierarchicalDashboardData(transactions);
     
     return <ClientOnlyDashboard data={dashboardData} />;
   } catch (error) {

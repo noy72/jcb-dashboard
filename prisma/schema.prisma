@@ -44,6 +44,27 @@ model Category {
   updated_at   DateTime      @updatedAt
 }
 
+model MajorCategory {
+  id             Int             @id @default(autoincrement())
+  name           String          @unique
+  minor_categories MinorCategory[]
+  store_mappings StoreHierarchicalCategoryMapping[]
+  created_at     DateTime        @default(now())
+  updated_at     DateTime        @updatedAt
+}
+
+model MinorCategory {
+  id               Int             @id @default(autoincrement())
+  name             String
+  major_category   MajorCategory   @relation(fields: [major_category_id], references: [id], onDelete: Cascade)
+  major_category_id Int
+  store_mappings   StoreHierarchicalCategoryMapping[]
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @updatedAt
+
+  @@unique([major_category_id, name]) // Same minor category name allowed in different major categories
+}
+
 model StoreCategoryMapping {
   id         Int      @id @default(autoincrement())
   store_name String   @unique
@@ -51,4 +72,15 @@ model StoreCategoryMapping {
   categoryId Int
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
+}
+
+model StoreHierarchicalCategoryMapping {
+  id                Int           @id @default(autoincrement())
+  store_name        String        @unique
+  major_category    MajorCategory @relation(fields: [major_category_id], references: [id])
+  major_category_id Int
+  minor_category    MinorCategory? @relation(fields: [minor_category_id], references: [id])
+  minor_category_id Int?
+  created_at        DateTime      @default(now())
+  updated_at        DateTime      @updatedAt
 }
