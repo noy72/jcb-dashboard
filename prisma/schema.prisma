@@ -10,3 +10,46 @@ datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
+
+model Statement {
+  id           Int      @id @default(autoincrement())
+  payment_date DateTime
+  total_amount Int
+  imported_at  DateTime @default(now())
+  transactions Transaction[]
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+}
+
+model Transaction {
+  id               Int      @id @default(autoincrement())
+  transaction_date DateTime
+  store_name       String
+  amount           Int
+  payment_type     String
+  note             String?
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  category         Category? @relation(fields: [categoryId], references: [id])
+  categoryId       Int?
+  statement        Statement @relation(fields: [statementId], references: [id])
+  statementId      Int
+}
+
+model Category {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  transactions Transaction[]
+  mappings     StoreCategoryMapping[]
+  created_at   DateTime      @default(now())
+  updated_at   DateTime      @updatedAt
+}
+
+model StoreCategoryMapping {
+  id         Int      @id @default(autoincrement())
+  store_name String   @unique
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId Int
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
