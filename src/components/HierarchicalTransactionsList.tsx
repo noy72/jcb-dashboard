@@ -28,6 +28,7 @@ import {
   getMinorCategoriesByMajor,
 } from '@/lib/actions/hierarchical-categories';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 interface MajorCategory {
   id: number;
@@ -239,7 +240,12 @@ export default function HierarchicalTransactionsList({
   return (
     <Container maxW="7xl" py={8}>
       <VStack spacing={8} align="stretch">
-        <Heading size="lg">利用明細管理（階層カテゴリ）</Heading>
+        <HStack justify="space-between" align="center">
+          <Heading size="lg">利用明細管理（階層カテゴリ）</Heading>
+          <Button as={Link} href="/" colorScheme="blue" variant="outline">
+            ダッシュボードへ戻る
+          </Button>
+        </HStack>
         
         <CsvUploader onUploadSuccess={handleUploadSuccess} />
         
