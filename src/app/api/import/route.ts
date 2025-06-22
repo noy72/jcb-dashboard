@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import Papa from 'papaparse';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 
 // CSVのヘッダーから情報を抽出するための正規表現
 const paymentDateRegex = /今回のお支払日,(\d{4}\/\d{2}\/\d{2})/;
