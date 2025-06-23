@@ -156,7 +156,7 @@ export async function deleteStoreHierarchicalCategoryMapping(storeName: string) 
   }
 }
 
-// Transaction retrieval with hierarchical categories
+// Transaction retrieval with hierarchical categories (for dashboard - all data)
 export async function getTransactionsWithHierarchicalCategories(transactionMonth?: string) {
   try {
     let whereClause = {};
@@ -190,7 +190,11 @@ export async function getTransactionsWithHierarchicalCategories(transactionMonth
     // Get hierarchical store category mappings
     const hierarchicalMappings = await prisma.storeHierarchicalCategoryMapping.findMany({
       include: {
-        major_category: true,
+        major_category: {
+          include: {
+            minor_categories: true,
+          },
+        },
         minor_category: true,
       },
     });
@@ -210,6 +214,92 @@ export async function getTransactionsWithHierarchicalCategories(transactionMonth
     }));
 
     return transactionsWithHierarchicalCategories;
+  } catch (error) {
+    console.error('Error fetching transactions with hierarchical categories:', error);
+    throw new Error('取引データの取得に失敗しました');
+  }
+}
+
+// Transaction retrieval with pagination (for transactions page)
+export async function getTransactionsWithHierarchicalCategoriesPaginated(
+  transactionMonth?: string,
+  page: number = 1,
+  limit: number = 50
+) {
+  try {
+    let whereClause = {};
+    
+    if (transactionMonth) {
+      const year = parseInt(transactionMonth.split('-')[0]);
+      const month = parseInt(transactionMonth.split('-')[1]);
+      
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+      
+      whereClause = {
+        transaction_date: {
+          gte: startDate,
+          lte: endDate,
+        },
+      };
+    }
+
+    const [transactions, totalCount] = await Promise.all([
+      prisma.transaction.findMany({
+        where: whereClause,
+        include: {
+          statement: true,
+          category: true,
+        },
+        orderBy: {
+          transaction_date: 'desc',
+        },
+        take: limit,
+        skip: (page - 1) * limit,
+      }),
+      prisma.transaction.count({
+        where: whereClause,
+      }),
+    ]);
+
+    // Get hierarchical store category mappings
+    const hierarchicalMappings = await prisma.storeHierarchicalCategoryMapping.findMany({
+      include: {
+        major_category: {
+          include: {
+            minor_categories: true,
+          },
+        },
+        minor_category: true,
+      },
+    });
+
+    // Create a map for quick lookup
+    const hierarchicalCategoryMap = new Map(
+      hierarchicalMappings.map(mapping => [mapping.store_name, {
+        majorCategory: mapping.major_category,
+        minorCategory: mapping.minor_category,
+      }])
+    );
+
+    // Add hierarchical categories to each transaction
+    const transactionsWithHierarchicalCategories = transactions.map(transaction => ({
+      ...transaction,
+      hierarchicalCategory: hierarchicalCategoryMap.get(transaction.store_name) || null,
+    }));
+
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return {
+      transactions: transactionsWithHierarchicalCategories,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages,
+        hasMore: page < totalPages,
+      },
+    };
   } catch (error) {
     console.error('Error fetching transactions with hierarchical categories:', error);
     throw new Error('取引データの取得に失敗しました');

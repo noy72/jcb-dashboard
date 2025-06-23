@@ -19,7 +19,6 @@ import {
   HStack,
   Select,
   useDisclosure,
-  Flex,
 } from '@chakra-ui/react';
 import { CsvUploader } from '@/components/CsvUploader';
 import { HierarchicalCategoryModal } from '@/components/HierarchicalCategoryModal';
@@ -66,8 +65,17 @@ export interface Transaction {
   };
 }
 
+interface PaginationInfo {
+  page: number;
+  limit: number;
+  totalCount: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
 interface HierarchicalTransactionsListProps {
   initialTransactions: Transaction[];
+  pagination: PaginationInfo;
   majorCategories: MajorCategory[];
   availableMonths: string[];
   initialMonthFilter?: string;
@@ -75,6 +83,7 @@ interface HierarchicalTransactionsListProps {
 
 export default function HierarchicalTransactionsList({ 
   initialTransactions, 
+  pagination,
   majorCategories,
   availableMonths,
   initialMonthFilter = '' 
@@ -145,7 +154,18 @@ export default function HierarchicalTransactionsList({
     if (value) {
       params.set('month', value);
     }
+    // Reset to page 1 when changing month filter
+    params.set('page', '1');
     router.push(`/transactions${params.toString() ? '?' + params.toString() : ''}`);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams();
+    if (initialMonthFilter) {
+      params.set('month', initialMonthFilter);
+    }
+    params.set('page', newPage.toString());
+    router.push(`/transactions?${params.toString()}`);
   };
 
   const formatDate = (date: Date) => {
@@ -209,7 +229,7 @@ export default function HierarchicalTransactionsList({
               const minorCategoryId = e.target.value ? parseInt(e.target.value) : undefined;
               handleUpdateHierarchicalCategory(
                 storeName, 
-                parseInt(currentMajorCategoryId), 
+                parseInt(currentMajorCategoryId.toString()), 
                 minorCategoryId
               );
             }}
@@ -227,7 +247,7 @@ export default function HierarchicalTransactionsList({
           <Button
             size="xs"
             colorScheme="blue"
-            onClick={() => handleUpdateHierarchicalCategory(storeName, parseInt(currentMajorCategoryId))}
+            onClick={() => handleUpdateHierarchicalCategory(storeName, parseInt(currentMajorCategoryId.toString()))}
             disabled={isPending}
           >
             大カテゴリのみで保存
@@ -266,9 +286,14 @@ export default function HierarchicalTransactionsList({
                 ))}
               </Select>
             </HStack>
-            <Button colorScheme="green" onClick={onOpen}>
-              階層カテゴリを管理
-            </Button>
+            <HStack>
+              <Text fontSize="sm" color="gray.600">
+                {pagination.totalCount}件の取引
+              </Text>
+              <Button colorScheme="green" onClick={onOpen}>
+                階層カテゴリを管理
+              </Button>
+            </HStack>
           </HStack>
           
           {initialTransactions.length === 0 ? (
@@ -278,34 +303,97 @@ export default function HierarchicalTransactionsList({
               </Text>
             </Box>
           ) : (
-            <Box overflowX="auto">
-              <Table variant="simple">
-                <Thead>
-                  <Tr>
-                    <Th>利用日</Th>
-                    <Th>店名</Th>
-                    <Th isNumeric>金額</Th>
-                    <Th>支払区分</Th>
-                    <Th>階層カテゴリ</Th>
-                    <Th>摘要</Th>
-                    <Th>カテゴリ設定</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {initialTransactions.map((transaction) => (
-                    <Tr key={transaction.id}>
-                      <Td>{formatDate(transaction.transaction_date)}</Td>
-                      <Td>{transaction.store_name}</Td>
-                      <Td isNumeric>{formatAmount(transaction.amount)}</Td>
-                      <Td>{transaction.payment_type}</Td>
-                      <Td>{renderCategoryBadge(transaction)}</Td>
-                      <Td>{transaction.note || '-'}</Td>
-                      <Td>{renderCategorySelectors(transaction)}</Td>
+            <VStack spacing={4} align="stretch">
+              {/* Pagination Info */}
+              <HStack justify="space-between">
+                <Text fontSize="sm" color="gray.600">
+                  {pagination.totalCount}件中 {(pagination.page - 1) * pagination.limit + 1}-{Math.min(pagination.page * pagination.limit, pagination.totalCount)}件を表示
+                </Text>
+                <Text fontSize="sm" color="gray.600">
+                  ページ {pagination.page} / {pagination.totalPages}
+                </Text>
+              </HStack>
+
+              <Box overflowX="auto">
+                <Table variant="simple">
+                  <Thead>
+                    <Tr>
+                      <Th>利用日</Th>
+                      <Th>店名</Th>
+                      <Th isNumeric>金額</Th>
+                      <Th>支払区分</Th>
+                      <Th>階層カテゴリ</Th>
+                      <Th>摘要</Th>
+                      <Th>カテゴリ設定</Th>
                     </Tr>
-                  ))}
-                </Tbody>
-              </Table>
-            </Box>
+                  </Thead>
+                  <Tbody>
+                    {initialTransactions.map((transaction) => (
+                      <Tr key={transaction.id}>
+                        <Td>{formatDate(transaction.transaction_date)}</Td>
+                        <Td>{transaction.store_name}</Td>
+                        <Td isNumeric>{formatAmount(transaction.amount)}</Td>
+                        <Td>{transaction.payment_type}</Td>
+                        <Td>{renderCategoryBadge(transaction)}</Td>
+                        <Td>{transaction.note || '-'}</Td>
+                        <Td>{renderCategorySelectors(transaction)}</Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </Box>
+
+              {/* Pagination Controls */}
+              {pagination.totalPages > 1 && (
+                <HStack justify="center" spacing={2}>
+                  <Button
+                    leftIcon={<Text>‹</Text>}
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    isDisabled={pagination.page === 1}
+                    size="sm"
+                    variant="outline"
+                  >
+                    前へ
+                  </Button>
+                  
+                  {/* Page numbers */}
+                  {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (pagination.totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (pagination.page <= 3) {
+                      pageNum = i + 1;
+                    } else if (pagination.page >= pagination.totalPages - 2) {
+                      pageNum = pagination.totalPages - 4 + i;
+                    } else {
+                      pageNum = pagination.page - 2 + i;
+                    }
+                    
+                    return (
+                      <Button
+                        key={pageNum}
+                        size="sm"
+                        variant={pageNum === pagination.page ? "solid" : "outline"}
+                        colorScheme={pageNum === pagination.page ? "blue" : "gray"}
+                        onClick={() => handlePageChange(pageNum)}
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                  
+                  <Button
+                    rightIcon={<Text>›</Text>}
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    isDisabled={!pagination.hasMore}
+                    size="sm"
+                    variant="outline"
+                  >
+                    次へ
+                  </Button>
+                </HStack>
+              )}
+            </VStack>
           )}
         </Box>
 

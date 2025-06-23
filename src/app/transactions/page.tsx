@@ -1,6 +1,6 @@
 import { getAvailableTransactionMonths } from '@/lib/actions/transactions';
 import { 
-  getTransactionsWithHierarchicalCategories,
+  getTransactionsWithHierarchicalCategoriesPaginated,
   getMajorCategories,
 } from '@/lib/actions/hierarchical-categories';
 import HierarchicalTransactionsList from '@/components/HierarchicalTransactionsList';
@@ -8,20 +8,23 @@ import HierarchicalTransactionsList from '@/components/HierarchicalTransactionsL
 interface TransactionsPageProps {
   searchParams: {
     month?: string;
+    page?: string;
   };
 }
 
 export default async function TransactionsPage({ searchParams }: TransactionsPageProps) {
   try {
-    const [transactions, majorCategories, availableMonths] = await Promise.all([
-      getTransactionsWithHierarchicalCategories(searchParams.month),
+    const page = parseInt(searchParams.page || '1', 10);
+    const [transactionsData, majorCategories, availableMonths] = await Promise.all([
+      getTransactionsWithHierarchicalCategoriesPaginated(searchParams.month, page, 50),
       getMajorCategories(),
       getAvailableTransactionMonths(),
     ]);
 
     return (
       <HierarchicalTransactionsList 
-        initialTransactions={transactions}
+        initialTransactions={transactionsData.transactions}
+        pagination={transactionsData.pagination}
         majorCategories={majorCategories}
         availableMonths={availableMonths}
         initialMonthFilter={searchParams.month || ''}
@@ -32,6 +35,7 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
     return (
       <HierarchicalTransactionsList 
         initialTransactions={[]}
+        pagination={{ page: 1, limit: 50, totalCount: 0, totalPages: 0, hasMore: false }}
         majorCategories={[]}
         availableMonths={[]}
         initialMonthFilter=""
