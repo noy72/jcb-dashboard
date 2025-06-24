@@ -28,25 +28,36 @@ const EXPECTED_HEADERS = {
   OVERSEAS_AMOUNT: 'うち海外ご利用金額合計(￥)',
 };
 
-interface TransactionRow {
-  'ご利用日': string;
-  'ご利用先など': string;
-  'ご利用金額(￥)': string;
-  '支払区分': string;
-  '摘要': string;
-}
 
 export function parseJCBCSV(csvText: string): ParsedCSVResult {
-  const lines = csvText.split('\n');
+  const parseResult = Papa.parse(csvText, {
+    header: false,
+    skipEmptyLines: false,
+  });
+  
+  if (parseResult.errors.length > 0) {
+    throw new Error(`CSV parse error: ${parseResult.errors.map(e => e.message).join(', ')}`);
+  }
+  
+  const allRows = parseResult.data as string[][];
 
-  // Parse header information (first 4 lines) as CSV
-  const headerRows = lines.slice(0, 4).map(line => line.split(',').map(cell => cell.slice(1, -1).trim())); // Remove leading/trailing quotes
+  // Extract header information (first 4 rows)
+  const headerRows = allRows.slice(0, 4);
 
-  if (headerRows[0][2] !== EXPECTED_HEADERS.PAYMENT_DATE ||
-      headerRows[1][2] !== EXPECTED_HEADERS.TOTAL_AMOUNT ||
-      headerRows[2][2] !== EXPECTED_HEADERS.DOMESTIC_AMOUNT ||
-      headerRows[3][2] !== EXPECTED_HEADERS.OVERSEAS_AMOUNT) {
-    throw new Error('Invalid CSV header format: Missing expected headers');
+  // Validate header row structure
+  if (headerRows.length < 4 || 
+      !headerRows[0] || headerRows[0].length < 4 ||
+      !headerRows[1] || headerRows[1].length < 4 ||
+      !headerRows[2] || headerRows[2].length < 4 ||
+      !headerRows[3] || headerRows[3].length < 4) {
+    throw new Error(`Invalid CSV header format: Insufficient header rows or columns. Found ${headerRows.length} rows`);
+  }
+
+  if (headerRows[0][2].trim() !== EXPECTED_HEADERS.PAYMENT_DATE ||
+      headerRows[1][2].trim() !== EXPECTED_HEADERS.TOTAL_AMOUNT ||
+      headerRows[2][2].trim() !== EXPECTED_HEADERS.DOMESTIC_AMOUNT ||
+      headerRows[3][2].trim() !== EXPECTED_HEADERS.OVERSEAS_AMOUNT) {
+    throw new Error(`Invalid CSV header format: Expected headers not found. Found: [${headerRows[0][2]}, ${headerRows[1][2]}, ${headerRows[2][2]}, ${headerRows[3][2]}]`);
   }
 
   const paymentDate = headerRows[0][3]?.trim();
@@ -56,7 +67,7 @@ export function parseJCBCSV(csvText: string): ParsedCSVResult {
   
   // Validate that all required header information was found
   if (!paymentDate || !totalAmount || !domesticAmount || !overseasAmount) {
-    throw new Error('Invalid CSV header format: Missing required fields (今回のお支払日, 今回のお支払金額合計, うち国内ご利用金額合計, うち海外ご利用金額合計)');
+    throw new Error(`Invalid CSV header format: Missing required fields. Found values: paymentDate='${paymentDate}', totalAmount='${totalAmount}', domesticAmount='${domesticAmount}', overseasAmount='${overseasAmount}'`);
   }
 
   const statement: ParsedStatement = {
@@ -66,39 +77,51 @@ export function parseJCBCSV(csvText: string): ParsedCSVResult {
     overseas_amount: parseInt(overseasAmount, 10),
   };
 
-  // Parse transaction details (starting from line 6)
-  const detailLines = lines.slice(5).join('\n');
-  const parseResult = Papa.parse<TransactionRow>(detailLines, {
-    header: true,
-    skipEmptyLines: true,
-  });
-
-  if (parseResult.errors.length > 0) {
-    throw new Error(`CSV parse error: ${parseResult.errors.map(e => e.message).join(', ')}`);
-  }
+  // Extract transaction rows (from row 5 onwards, excluding header row at index 5)
+  const transactionRows = allRows.slice(6);
+  const transactionHeaders = allRows[5];
 
   const transactions: ParsedTransaction[] = [];
 
-  for (const row of parseResult.data) {
+  for (const row of transactionRows) {
+    if (!row || row.length === 0) continue;
+
+    // Create object from headers and row data
+    const transactionData: { [key: string]: string } = {};
+    transactionHeaders.forEach((header, index) => {
+      transactionData[header] = row[index] || '';
+    });
+
     // Skip if required fields are empty or if store name starts with 'ＪＣＢ'
-    if (!row['ご利用日'] || !row['ご利用先など'] || !row['ご利用金額(￥)'] || 
-        row['ご利用先など'].startsWith('ＪＣＢ')) {
+    if (!transactionData['ご利用日'] || !transactionData['ご利用先など'] || !transactionData['ご利用金額(￥)'] || 
+        transactionData['ご利用先など'].startsWith('ＪＣＢ')) {
       continue;
     }
 
-    const transactionDate = new Date(row['ご利用日'].trim());
-    const storeName = row['ご利用先など'].trim();
-    const amount = parseInt(row['ご利用金額(￥)'].replace(/,/g, ''), 10);
-    const paymentType = row['支払区分'].trim();
-    const note = row['摘要']?.trim() || null;
+    try {
+      const transactionDate = new Date(transactionData['ご利用日'].trim());
+      const storeName = transactionData['ご利用先など'].trim();
+      const amount = parseInt(transactionData['ご利用金額(￥)'].replace(/,/g, ''), 10);
+      const paymentType = transactionData['支払区分'].trim();
+      const note = transactionData['摘要']?.trim() || null;
 
-    transactions.push({
-      transaction_date: transactionDate,
-      store_name: storeName,
-      amount: amount,
-      payment_type: paymentType,
-      note: note,
-    });
+      if (isNaN(amount)) {
+        throw new Error(`Invalid amount value: '${transactionData['ご利用金額(￥)']}'`);
+      }
+      if (isNaN(transactionDate.getTime())) {
+        throw new Error(`Invalid date value: '${transactionData['ご利用日']}'`);
+      }
+
+      transactions.push({
+        transaction_date: transactionDate,
+        store_name: storeName,
+        amount: amount,
+        payment_type: paymentType,
+        note: note,
+      });
+    } catch (error) {
+      throw new Error(`Error parsing transaction row: ${error instanceof Error ? error.message : error}. Row data: ${JSON.stringify(transactionData)}`);
+    }
   }
 
   return {
