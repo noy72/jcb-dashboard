@@ -116,6 +116,21 @@ export function calculateMonthlyData(transactions: Transaction[], targetMonth?: 
           amount: existingDetailed.amount + transaction.amount,
           count: existingDetailed.count + 1,
         });
+      } else {
+        // Include uncategorized transactions in monthly breakdown
+        const uncategorizedName = '未分類';
+        const existingMajor = majorCategoryMap.get(uncategorizedName) || { amount: 0, count: 0 };
+        majorCategoryMap.set(uncategorizedName, {
+          amount: existingMajor.amount + transaction.amount,
+          count: existingMajor.count + 1,
+        });
+
+        const detailedKey = uncategorizedName;
+        const existingDetailed = detailedCategoryMap.get(detailedKey) || { amount: 0, count: 0 };
+        detailedCategoryMap.set(detailedKey, {
+          amount: existingDetailed.amount + transaction.amount,
+          count: existingDetailed.count + 1,
+        });
       }
     });
 
@@ -180,6 +195,27 @@ export function calculateHierarchicalDashboardData(transactions: Transaction[]):
       });
     } else {
       uncategorizedCount++;
+      
+      // Include uncategorized transactions in breakdown
+      const uncategorizedName = '未分類';
+      const existingMajor = majorCategoryMap.get(uncategorizedName) || { amount: 0, count: 0 };
+      majorCategoryMap.set(uncategorizedName, {
+        amount: existingMajor.amount + transaction.amount,
+        count: existingMajor.count + 1,
+      });
+
+      const detailedKey = `${uncategorizedName}_null`;
+      const existing = detailedCategoryMap.get(detailedKey) || {
+        majorCategory: uncategorizedName,
+        minorCategory: null,
+        amount: 0,
+        count: 0,
+      };
+      detailedCategoryMap.set(detailedKey, {
+        ...existing,
+        amount: existing.amount + transaction.amount,
+        count: existing.count + 1,
+      });
     }
   });
   
