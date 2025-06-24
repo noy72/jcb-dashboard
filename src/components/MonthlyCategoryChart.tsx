@@ -162,7 +162,7 @@ export default function MonthlyCategoryChart({
         <VStack spacing={2} align="stretch" mt={4}>
           <Heading size="sm">
             カテゴリ詳細
-            {showDetailedCategories && <Text fontSize="xs" color="gray.600">(大カテゴリ > 小カテゴリ)</Text>}
+            {showDetailedCategories && <Text fontSize="xs" color="gray.600">(大カテゴリ {'>'} 小カテゴリ)</Text>}
           </Heading>
           {currentCategories.map((category, index) => {
             const percentage = ((category.amount / currentMonthData.monthlyTotal) * 100).toFixed(1);

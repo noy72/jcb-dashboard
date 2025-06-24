@@ -53,6 +53,8 @@ import { CategoryBreakdown, HierarchicalDashboardData, MonthlyData } from '@/lib
 import MonthlyCategoryChart from './MonthlyCategoryChart';
 import Link from 'next/link';
 
+export type DashboardData = HierarchicalDashboardData;
+
 interface DashboardProps {
   data: HierarchicalDashboardData | null;
 }

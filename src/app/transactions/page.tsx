@@ -6,17 +6,18 @@ import {
 import HierarchicalTransactionsList from '@/components/HierarchicalTransactionsList';
 
 interface TransactionsPageProps {
-  searchParams: {
+  searchParams: Promise<{
     month?: string;
     page?: string;
-  };
+  }>;
 }
 
 export default async function TransactionsPage({ searchParams }: TransactionsPageProps) {
   try {
-    const page = parseInt(searchParams.page || '1', 10);
+    const params = await searchParams;
+    const page = parseInt(params.page || '1', 10);
     const [transactionsData, majorCategories, availableMonths] = await Promise.all([
-      getTransactionsWithHierarchicalCategoriesPaginated(searchParams.month, page, 50),
+      getTransactionsWithHierarchicalCategoriesPaginated(params.month, page, 50),
       getMajorCategories(),
       getAvailableTransactionMonths(),
     ]);
@@ -27,7 +28,7 @@ export default async function TransactionsPage({ searchParams }: TransactionsPag
         pagination={transactionsData.pagination}
         majorCategories={majorCategories}
         availableMonths={availableMonths}
-        initialMonthFilter={searchParams.month || ''}
+        initialMonthFilter={params.month || ''}
       />
     );
   } catch (error) {
